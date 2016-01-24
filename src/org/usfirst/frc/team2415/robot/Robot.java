@@ -5,30 +5,30 @@ import java.io.BufferedWriter;
 import com.kauailabs.nav6.frc.IMU;
 
 import edu.wpi.first.wpilibj.CANTalon;
+import edu.wpi.first.wpilibj.Encoder;
 import edu.wpi.first.wpilibj.SampleRobot;
 import edu.wpi.first.wpilibj.SerialPort;
 
 public class Robot extends SampleRobot {
 	
+	private final int[] LEFT_TALS = {0,1};
+	private final int[] RIGHT_TALS = {2,3};
+	private final int[] LEFT_ENC = {0,1};
+	private final int[] RIGHT_ENC = {2,3};
+	
 	private final double POWER_INCREMEMT = 0.05;
 	private BufferedWriter file;
-	private IMU imu;
 	
 	Transmission left, right;
 	
-    public Robot() {
-    	left = new Transmission(0,1);
-    	right = new Transmission(2,3);
-    	
-    	SerialPort imuPort = new SerialPort(57600, SerialPort.Port.kMXP);
-    	imu = new IMU(imuPort, (byte)50);
-    	imu.zeroYaw();
+    public Robot(){
+    	left = new Transmission(LEFT_TALS, LEFT_ENC);
+    	right = new Transmission(RIGHT_TALS, RIGHT_ENC);
     	
     	WriteToFlashDrive.createBufferedWriter("Hermes", file);
     }
     
-    public void robotInit() {
-    }
+    public void robotInit() {}
 
     public void autonomous() {
     	int numIntervals = (int)(2/POWER_INCREMEMT)+1;
@@ -39,15 +39,12 @@ public class Robot extends SampleRobot {
     		right.setMotors(power);
     		
     		Timer.start();
-    		while(Timer.getTime() <= 0.25);
-    		left.stop();
-    		right.stop();
+    		while(Timer.getTime() <= 0.5);
     		
     		Timer.start();
-    		while(Timer.getTime() <= 0.75);
-    		WriteToFlashDrive.writeToFile(power, imu.getYaw(), file);
-    		
-    		imu.zeroYaw();
+    		while(Timer.getTime() <= 1){
+    			WriteToFlashDrive.writeToFile(power, (left.getVel() + right.getVel())/2, file);
+    		}
     	}
     	WriteToFlashDrive.flushAndClose(file);
     }
@@ -57,9 +54,12 @@ public class Robot extends SampleRobot {
     
     private class Transmission{
 		private CANTalon tal1, tal2;
-		public Transmission(int port1, int port2){
-			tal1 = new CANTalon(port1);
-			tal2 = new CANTalon(port2);
+		private Encoder encoder;
+		public Transmission(int[] talPorts, int[] encPorts){
+			tal1 = new CANTalon(talPorts[0]);
+			tal2 = new CANTalon(talPorts[1]);
+			
+			encoder = new Encoder(encPorts[0], encPorts[1]);
 		}
 		public void setMotors(double speed){
 			tal1.set(speed);
@@ -69,6 +69,10 @@ public class Robot extends SampleRobot {
 		public void stop(){
 			tal1.set(0);
 			tal2.set(0);
+		}
+		
+		public double getVel(){
+			return encoder.getRate();
 		}
 	}
     
